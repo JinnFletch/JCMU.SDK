@@ -10,18 +10,6 @@ namespace JinnDev.JCMU.SDK.Interfaces;
 public interface IJcmuAddon
 {
     /// <summary>
-    /// Retrieves the metadata and identity of the addon.
-    /// </summary>
-    /// <returns>A monad containing the validated plugin manifest.</returns>
-    Maybe<PluginManifest> GetManifest();
-
-    /// <summary>
-    /// Retrieves the static configuration defining how this addon integrates into the Windows Registry context menu.
-    /// </summary>
-    /// <returns>A monad containing the validated menu definition.</returns>
-    Maybe<MenuDefinition> GetMenuRegistration();
-
-    /// <summary>
     /// Executes the core logic of the addon when the user clicks the context menu item.
     /// </summary>
     /// <param name="context">The state and toolset provided by the host at the moment of execution.</param>

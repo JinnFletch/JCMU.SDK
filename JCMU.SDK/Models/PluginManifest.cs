@@ -1,4 +1,5 @@
 ﻿using JinnDev.Utilities.Monad;
+using System.Text.RegularExpressions;
 
 namespace JinnDev.JCMU.SDK.Models;
 
@@ -39,6 +40,11 @@ public record PluginManifest
     public string? MinCoreVersion { get; init; }
 
     /// <summary>
+    /// Require the MenuDefinition so the core doesn't have to do reflection.
+    /// </summary>
+    public required MenuDefinition Menu { get; init; }
+
+    /// <summary>
     /// Validates the manifest data, returning a successful Maybe if valid, 
     /// or a failed Maybe containing the specific missing property message.
     /// </summary>
@@ -48,11 +54,17 @@ public record PluginManifest
         if (string.IsNullOrWhiteSpace(AddonId))
             return Maybe.Fail("AddonId cannot be null or whitespace.");
 
+        if (!Regex.IsMatch(AddonId, @"^[a-zA-Z0-9\.\-_]+$"))
+            return Maybe.Fail("AddonId can only contain letters, numbers, periods, hyphens, and underscores. No spaces.");
+
         if (string.IsNullOrWhiteSpace(DisplayName))
             return Maybe.Fail("DisplayName cannot be null or whitespace.");
 
         if (string.IsNullOrWhiteSpace(Version))
             return Maybe.Fail("Version cannot be null or whitespace.");
+
+        if (Menu == null)
+            return Maybe.Fail("Manifest is missing the 'Menu' definition.");
 
         return Maybe.SUCCESS;
     }
