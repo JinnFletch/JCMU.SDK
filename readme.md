@@ -1,92 +1,109 @@
-# Jinn Context Menu Utils SDK (JCMU.SDK)
+# Jinn Context Menu Utility (JCMU) SDK
 
-The **JCMU.SDK** is the official, ultra-lightweight contract for building plugins (Addons) for the Jinn Context Menu Utils platform. 
+The JCMU SDK provides the core contracts required to build dynamic, C#-powered Windows Context Menu extensions. 
 
-By referencing this SDK, you can build powerful C# plugins that integrate directly into the Windows File Explorer right-click context menu, without needing to understand COM Shell Extensions or registry hacking.
+Instead of messing with the Windows Registry or building complex COM servers, JCMU allows you to write standard C# logic, define a simple JSON manifest, and let the JCMU Core handle the OS integration, memory isolation, and execution.
 
-## 🏗️ Philosophy
-* **The "Handshake" Only:** This SDK defines *only* the communication layer between the JCMU Core and your plugin. It does not force heavy utility libraries (like CLI runners or JSON parsers) on you. You bring your own tools.
-* **Decoupled UI:** Plugins do not render their own UI. You provide the logic, and the JCMU Core engine handles the rendering, progress updates, and user prompts (whether running in a Console, WPF, or background process).
-* **Railway-Oriented (Monadic):** Every API surface uses the `JinnDev.Utilities.Monad` library to eliminate `try-catch` blocks and `null` reference exceptions.
+## Getting Started
 
-## 🚀 Getting Started
+1. Create a new C# Class Library targeting `.NET 8.0`.
+2. Add the `JinnDev.JCMU.SDK` NuGet package.
+3. Add a `manifest.json` file to your project root.
+4. Implement the `IJcmuAddon` interface.
 
-1. Create a new **Class Library** project (.NET 8+).
-2. Install the SDK via NuGet:
-   ```bash
-   dotnet add package JinnDev.JCMU.SDK
-   ```
-3. Create a public class that implements `IJcmuAddon`.
+---
 
-## 📖 The Core Contract
+## 1. The Manifest (`manifest.json`)
 
-Every plugin must implement the `IJcmuAddon` interface. The JCMU Core engine will automatically discover and load your class.
+The manifest defines your addon's identity and exactly how it should appear in the Windows Right-Click menu. 
 
-### 1. The Manifest
-Defines the identity and metadata of your plugin.
-```csharp
-public Maybe<PluginManifest> GetManifest()
+Create a `manifest.json` in your project and ensure its **Build Action** is set to `Content` and **Copy to Output Directory** is set to `Copy if newer`.
+
+```json
 {
-    return new PluginManifest
+  "AddonId": "JCMU.MyAwesomeAddon",
+  "DisplayName": "My Awesome Addon",
+  "Version": "1.0.0",
+  "Author": "YourName",
+  "MinCoreVersion": "1.0.0",
+  "Menu": {
+    "MenuItemName": "Do Something Awesome",
+    "Ordinal": 10,
+    "Category": "My Tools",
+    "RunInBackground": false,
+    "SubItems": null
+  }
+}
+```
+
+### Menu Properties
+* **`MenuItemName`**: The text the user actually clicks.
+* **`Ordinal`**: Determines the sorting order. Lower numbers appear higher in the list.
+* **`Category`**: (Optional) Groups your addon into a specific sub-folder in the root menu.
+* **`RunInBackground`**: If `true`, your addon will execute silently without popping up a console window.
+* **`SubItems`**: (Optional) An array of nested menu items if you want to create a cascading menu tree.
+
+---
+
+## 2. The Code (`IJcmuAddon`)
+
+The JCMU Core engine will automatically discover and instantiate any public class in your compiled `.dll` that implements `IJcmuAddon`. 
+
+You only need to implement a single method: `ExecuteAsync`.
+
+```csharp
+using JinnDev.JCMU.SDK.Interfaces;
+using JinnDev.JCMU.SDK.Models;
+using JinnDev.Utilities.Monad;
+
+namespace MyAwesomeAddon;
+
+public class AwesomeAction : IJcmuAddon
+{
+    public async Task<Maybe> ExecuteAsync(ActionContext context)
     {
-        AddonId = "MyOrg.AwesomePlugin",
-        DisplayName = "Awesome JCMU Plugin",
-        Version = "1.0.0",
-        Author = "Your Name"
-    };
+        var targetDir = context.TargetDirectory;
+        var logger = context.HostServices.Logger;
+
+        logger.LogInfo($"Executing addon against folder: {targetDir}");
+
+        try
+        {
+            // Your custom C# logic goes here
+            // e.g., File.Create(Path.Combine(targetDir, "new_file.txt"));
+            
+            return Maybe.SUCCESS;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError("Something went wrong!", ex);
+            return Maybe.Fail(ex.Message);
+        }
+    }
 }
 ```
 
-### 2. The Menu Registration
-Defines how your plugin appears in the Windows right-click menu. The Core handles all Windows Registry editing on your behalf.
-```csharp
-public Maybe<MenuDefinition> GetMenuRegistration()
-{
-    return new MenuDefinition
-    {
-        MenuItemName = "Do Awesome Thing",
-        Ordinal = 10,
-        Placement = MenuPlacement.FileSystem, // Groups it cleanly with similar tools
-        RunInBackground = true // Logic executes silently without a console window
-    };
-}
-```
+---
 
-### 3. Execution
-When a user right-clicks a folder and selects your menu item, the Core engine invokes `ExecuteAsync`. You are provided an `ActionContext` which contains:
-* `TargetDirectory`: The absolute path of the folder the user right-clicked.
-* `HostServices`: A toolbelt provided by the Core to safely interact with the user interface.
+## 3. The Execution Context
 
-```csharp
-public async Task<Maybe> ExecuteAsync(ActionContext context)
-{
-    var logger = context.HostServices.Logger;
+When a user right-clicks a folder and selects your addon, your `ExecuteAsync` method is provided an `ActionContext`. This contains everything you need to interact with the environment safely.
 
-    logger.LogInfo($"Scanning directory: {context.TargetDirectory}");
+### `TargetDirectory`
+A string representing the absolute path of the folder the user right-clicked on.
 
-    // Example: Using the Host's UI abstraction to ask a question
-    var userInput = await context.HostServices.PromptUserAsync("What should we name the backup?");
-    
-    if (!userInput.HasValue)
-        return Maybe.Fail("Operation cancelled by user.");
+### `HostServices`
+A toolbelt provided by the JCMU Core bridging your isolated addon to the host OS.
+* **`Logger`**: Use `LogInfo()`, `LogWarning()`, and `LogError()` to safely write output. If your menu is set to `RunInBackground: false`, this prints to the user's console window.
+* **`PromptUserAsync(string message)`**: A safe way to ask the user for text input (e.g., asking for a commit message or a new file name). 
 
-    // ... Do your actual logic here ...
+---
 
-    return Maybe.SUCCESS;
-}
-```
+## 4. Publishing Your Addon
 
-## 🛠️ The Host Services Toolbelt
-To keep plugins headless and adaptable to any UI, the JCMU Core provides several utilities through `context.HostServices`:
-* **`Logger`**: Standardized output (`LogInfo`, `LogWarning`, `LogError`). The Host decides how this is rendered (e.g., colored console text, toast notifications, or log files).
-* **`PromptUserAsync(message)`**: Requests string input from the user safely, without assuming the presence of `Console.ReadLine()`.
-* **`RunInBackground`**: Determines the visibility of the execution.
-    * `false` (Default): A console window opens to show logs and allow user input. Use this for verbose tasks or interactive scripts.
-    * `true`: The addon executes silently in the background. Use this for "transparent" actions like quick file deletions or background syncs.
+JCMU features a decentralized package manager powered by GitHub. 
 
-*(Note: If your plugin needs to execute command-line instructions, we highly recommend adding the `JinnDev.Utilities.CommandLine` NuGet package to your addon project.)*
-
-## 🛡️ Working with the Maybe Monad
-Because the SDK enforces the `Maybe` Monad, you never return `void` or `null`.
-* If your execution finishes successfully, return `Maybe.SUCCESS`.
-* If you encounter an error (or a condition where the plugin shouldn't run), return `Maybe.Fail("Reason")`. The JCMU Core will automatically intercept this, log it appropriately, and handle the failure gracefully.
+To make your addon available to the world:
+1. Push your source code to a public GitHub repository.
+2. Add the topic tag **`jcmu-addon`** to your repository on GitHub.
+3. Users can now discover your addon by typing `jcmu search` in their console!
