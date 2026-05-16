@@ -24,9 +24,10 @@ public record MenuDefinition
     public required int Ordinal { get; init; }
 
     /// <summary>
-    /// Defines which sub-menu (if any) this item should be nested under.
+    /// The name of the sub-menu folder this item should be grouped into (e.g., "Docker Tools").
+    /// If null, the item is placed directly in the main root menu.
     /// </summary>
-    public MenuPlacement Placement { get; init; } = MenuPlacement.Root;
+    public string? Category { get; init; }
 
     /// <summary>
     /// Optional child menus. If populated, clicking this item will expand a sub-menu 
@@ -48,6 +49,10 @@ public record MenuDefinition
     {
         if (string.IsNullOrWhiteSpace(MenuItemName))
             return Maybe.Fail("MenuItemName cannot be null or whitespace.");
+
+        // Ensure categories don't have crazy characters that break the Registry
+        if (!string.IsNullOrWhiteSpace(Category) && Category.Any(c => !char.IsLetterOrDigit(c) && c != ' '))
+            return Maybe.Fail("Category names must contain only letters, numbers, and spaces.");
 
         if (SubItems == null || !SubItems.Any())
             return Maybe.SUCCESS;
