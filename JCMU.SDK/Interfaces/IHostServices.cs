@@ -13,11 +13,6 @@ public interface IHostServices
     IPluginLogger Logger { get; }
 
     /// <summary>
-    /// Gets the command-line execution runner.
-    /// </summary>
-    IProcessRunner CLI { get; }
-
-    /// <summary>
     /// Prompts the user for input in the host's interface (e.g., the Console).
     /// </summary>
     /// <param name="message">The question or prompt to display to the user.</param>

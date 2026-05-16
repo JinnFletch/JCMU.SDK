@@ -8,21 +8,21 @@ namespace JinnDev.JCMU.SDK.Interfaces;
 public interface IPluginLogger
 {
     /// <summary>
-    /// Logs an informational message.
+    /// Logs an informational message to the user in their Notifications, F12 console, CLI, or whatever implementation is used.
     /// </summary>
     /// <param name="message">The message to log.</param>
     /// <returns>A parameterless success monad.</returns>
     Maybe LogInfo(string message);
 
     /// <summary>
-    /// Logs a warning message.
+    /// Logs a warning message to the user in their Notifications, F12 console, CLI, or whatever implementation is used.
     /// </summary>
     /// <param name="message">The warning message.</param>
     /// <returns>A parameterless success monad.</returns>
     Maybe LogWarning(string message);
 
     /// <summary>
-    /// Logs an error message, optionally including an exception.
+    /// Logs an error message, optionally including an exception, to the user in their Notifications, F12 console, CLI, or whatever implementation is used.
     /// </summary>
     /// <param name="message">The error message.</param>
     /// <param name="ex">The optional exception that caused the error.</param>

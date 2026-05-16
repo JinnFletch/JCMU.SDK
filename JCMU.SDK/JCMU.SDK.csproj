@@ -17,14 +17,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<None Remove="AllCode.txt" />
-		<None Remove="combine_cs_files.bat" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<PackageReference Include="JinnDev.Utilities.Monad" Version="10.0.6" />
-		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="6.0.1" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
 	</ItemGroup>
 
 </Project>

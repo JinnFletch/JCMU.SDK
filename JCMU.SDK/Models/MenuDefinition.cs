@@ -35,6 +35,12 @@ public record MenuDefinition
     public IEnumerable<MenuDefinition>? SubItems { get; init; }
 
     /// <summary>
+    /// If true, the JCMU Core will execute this addon in the background without 
+    /// showing a console window. If false, a console window will appear.
+    /// </summary>
+    public bool RunInBackground { get; init; } = false;
+
+    /// <summary>
     /// Validates the menu definition and its sub-items recursively.
     /// </summary>
     /// <returns>A parameterless monad representing the validation result.</returns>
