@@ -107,3 +107,40 @@ To make your addon available to the world:
 1. Push your source code to a public GitHub repository.
 2. Add the topic tag **`jcmu-addon`** to your repository on GitHub.
 3. Users can now discover your addon by typing `jcmu search` in their console!
+
+---
+
+### 5. Local Development & Testing
+
+You don't need to push to GitHub or constantly reinstall your addon just to test a code change. JCMU includes a powerful `dev` suite that uses Windows Junctions to point the Core engine directly at your Visual Studio build output.
+
+#### Step-by-Step Developer Workflow:
+
+1. Build your Addon in Visual Studio (or via `dotnet build`).
+2. Open a terminal and run the link command, pointing it to your project folder:
+   ```shell
+   jcmu dev link C:\Source\MyAwesomeAddon
+   ```
+3. JCMU will automatically find your `bin\Debug\...` folder, read your `manifest.json`, and hook your compiled DLLs directly into the Windows Explorer registry.
+4. Right-click a folder in Windows and test your addon.
+5. **Make a code change in Visual Studio and hit Build.** 
+6. Right-click and test again! *You do not need to run any JCMU commands; the changes are instantly live.*
+
+#### Cleaning Up
+When you are done testing, simply remove the development link using your Addon ID:
+```shell
+jcmu dev unlink JCMU.MyAwesomeAddon
+```
+
+---
+
+### 6. Background Execution & Logging
+
+If your manifest sets `"RunInBackground": true`, the JCMU Core will execute your addon using a hidden host process. The user will not see a console window flash on their screen.
+
+Because there is no visible console during a background execution, it is critical that you use the `context.HostServices.Logger`. 
+
+Regardless of whether your addon runs in the foreground or background, all `Logger.LogInfo`, `LogWarning`, and `LogError` calls are automatically captured by the Core's persistent rolling log files. 
+
+If a user reports an issue with your silent addon, you can direct them to check the core logs located at:
+`C:\ProgramData\JCMU\Logs\jcmu-core-<date>.txt`
