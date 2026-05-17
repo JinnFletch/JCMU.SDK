@@ -13,6 +13,6 @@ public interface IJcmuAddon
     /// Executes the core logic of the addon when the user clicks the context menu item.
     /// </summary>
     /// <param name="context">The state and toolset provided by the host at the moment of execution.</param>
-    /// <returns>A parameterless monad representing the success or failure of the execution.</returns>
-    Task<Maybe> ExecuteAsync(ActionContext context);
+    /// <returns>A monad where NONE is failure, 0 or more is a pause before closing time, and -1 is press any key to continue.</returns>
+    Task<Maybe<int>> ExecuteAsync(ActionContext context);
 }
