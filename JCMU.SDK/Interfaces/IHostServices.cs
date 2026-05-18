@@ -13,6 +13,11 @@ public interface IHostServices
     IPluginLogger Logger { get; }
 
     /// <summary>
+    /// Provides access to read and write persistent configuration and encrypted secrets.
+    /// </summary>
+    IAddonSettings Settings { get; }
+
+    /// <summary>
     /// Prompts the user for input in the host's interface (e.g., the Console).
     /// </summary>
     /// <param name="message">The question or prompt to display to the user.</param>
