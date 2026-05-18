@@ -1,146 +1,132 @@
 # Jinn Context Menu Utility (JCMU) SDK
 
-The JCMU SDK provides the core contracts required to build dynamic, C#-powered Windows Context Menu extensions. 
+The JCMU SDK is a high-performance, Railway-Oriented framework for building dynamic Windows Context Menu extensions using .NET 8. 
 
-Instead of messing with the Windows Registry or building complex COM servers, JCMU allows you to write standard C# logic, define a simple JSON manifest, and let the JCMU Core handle the OS integration, memory isolation, and execution.
+Instead of grappling with C++ COM extensions or brittle Registry hacks, JCMU provides a modern, sandboxed environment where you can write standard C# logic and have it integrated into the Windows Shell instantly.
 
-## Getting Started
+## 📦 Installation
 
-1. Create a new C# Class Library targeting `.NET 8.0`.
-2. Add the `JinnDev.JCMU.SDK` NuGet package.
-3. Add a `manifest.json` file to your project root.
-4. Implement the `IJcmuAddon` interface.
+1. Create a **.NET 8.0 Class Library**.
+2. Add the NuGet package:
+   ```shell
+   dotnet add package JinnDev.JCMU.SDK
+   ```
+3. Create a `manifest.json` in your project root. Set its properties to **Copy to Output Directory: Copy if newer**.
 
 ---
 
 ## 1. The Manifest (`manifest.json`)
 
-The manifest defines your addon's identity and exactly how it should appear in the Windows Right-Click menu. 
-
-Create a `manifest.json` in your project and ensure its **Build Action** is set to `Content` and **Copy to Output Directory** is set to `Copy if newer`.
+The manifest is the "ID Card" of your addon. It tells JCMU who you are and exactly how your menu should look.
 
 ```json
 {
-  "AddonId": "JCMU.MyAwesomeAddon",
-  "DisplayName": "My Awesome Addon",
-  "Version": "1.0.0",
-  "Author": "YourName",
-  "MinCoreVersion": "1.0.0",
+  "AddonId": "JCMU.GitUtils",
+  "DisplayName": "Git Utility Pack",
+  "Version": "1.1.0",
+  "Author": "JinnDev",
+  "MinCoreVersion": "1.0.4",
   "Menu": {
-    "MenuItemName": "Do Something Awesome",
+    "MenuItemName": "Initialize Repository",
+    "IconPath": "C:\\Path\\To\\icon.ico",
     "Ordinal": 10,
-    "Category": "My Tools",
+    "Category": "Git Tools",
     "RunInBackground": false,
     "SubItems": null
   }
 }
 ```
 
-### Menu Properties
-* **`MenuItemName`**: The text the user actually clicks.
-* **`Ordinal`**: Determines the sorting order. Lower numbers appear higher in the list.
-* **`Category`**: (Optional) Groups your addon into a specific sub-folder in the root menu.
-* **`RunInBackground`**: If `true`, your addon will execute silently without popping up a console window.
-* **`SubItems`**: (Optional) An array of nested menu items if you want to create a cascading menu tree.
+### Key Properties
+| Property | Description |
+| :--- | :--- |
+| **`AddonId`** | A globally unique string. Used for isolated storage and folder naming. |
+| **`Category`** | Optional. Groups your addon into a sub-folder (e.g., "Media Tools"). |
+| **`Ordinal`** | Lower numbers appear higher in the list. |
+| **`RunInBackground`** | If `true`, the addon runs via `jcmu-bg.exe` with no console window. |
+| **`SubItems`** | Allows you to create infinitely nested cascading menus. |
 
 ---
 
 ## 2. The Code (`IJcmuAddon`)
 
-The JCMU Core engine will automatically discover and instantiate any public class in your compiled `.dll` that implements `IJcmuAddon`. 
+Your addon must contain a public class implementing `IJcmuAddon`. JCMU uses specialized `AssemblyLoadContexts` to load your DLL and its dependencies in total isolation.
 
-You only need to implement a single method: `ExecuteAsync`.
+### The `ExecuteAsync` Contract
+The return type is `Task<Maybe<int>>`. The integer controls the **Terminal UI behavior**:
 
+*   **`return Maybe.Some(-1);`** : Keep the console open until the user presses a key.
+*   **`return Maybe.Some(5);`**  : Success! Start a 5-second countdown then auto-close.
+*   **`return Maybe.Some(0);`**  : Success! Close the window immediately.
+*   **`return Maybe.None("Error");`**: Failure. Displays the error and starts a 10-second countdown.
+
+### Implementation Example
 ```csharp
-using JinnDev.JCMU.SDK.Interfaces;
-using JinnDev.JCMU.SDK.Models;
-using JinnDev.Utilities.Monad;
-
-namespace MyAwesomeAddon;
-
-public class AwesomeAction : IJcmuAddon
+public class GitInitAction : IJcmuAddon
 {
-    public async Task<Maybe> ExecuteAsync(ActionContext context)
+    public async Task<Maybe<int>> ExecuteAsync(ActionContext context)
     {
-        var targetDir = context.TargetDirectory;
         var logger = context.HostServices.Logger;
+        
+        logger.LogInfo($"Initializing Git in: {context.TargetDirectory}");
 
-        logger.LogInfo($"Executing addon against folder: {targetDir}");
-
-        try
-        {
-            // Your custom C# logic goes here
-            // e.g., File.Create(Path.Combine(targetDir, "new_file.txt"));
-            
-            return Maybe.SUCCESS;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError("Something went wrong!", ex);
-            return Maybe.Fail(ex.Message);
-        }
+        // Perform logic...
+        
+        return Maybe.Some(5); // Success! Close in 5 seconds.
     }
 }
 ```
 
 ---
 
-## 3. The Execution Context
+## 3. Host Services (`IHostServices`)
 
-When a user right-clicks a folder and selects your addon, your `ExecuteAsync` method is provided an `ActionContext`. This contains everything you need to interact with the environment safely.
+The `ActionContext` provides a bridge to the JCMU Core.
 
-### `TargetDirectory`
-A string representing the absolute path of the folder the user right-clicked on.
+### 🛡️ Secure Settings & Secrets (`context.HostServices.Settings`)
+JCMU provides a built-in, isolated storage engine for every addon.
 
-### `HostServices`
-A toolbelt provided by the JCMU Core bridging your isolated addon to the host OS.
-* **`Logger`**: Use `LogInfo()`, `LogWarning()`, and `LogError()` to safely write output. If your menu is set to `RunInBackground: false`, this prints to the user's console window.
-* **`PromptUserAsync(string message)`**: A safe way to ask the user for text input (e.g., asking for a commit message or a new file name). 
+*   **Standard Config:** Use `GetValueAsync<T>` and `SetValueAsync<T>`. Data is stored as plain-text JSON in `%LOCALAPPDATA%`.
+*   **Secure Secrets:** Use `GetSecretAsync` and `SetSecretAsync`. Data is encrypted using **Windows DPAPI**. It can *only* be decrypted by the specific Windows User who saved it.
 
----
+> [!IMPORTANT]
+> To prevent secrets (like API Keys) from accidentally leaking into your plain-text config file, always mark your Secret properties with `[JsonIgnore]` in your model classes.
 
-## 4. Publishing Your Addon
+### 📝 Unified Logging (`context.HostServices.Logger`)
+Every log call is automatically routed to two places:
+1.  **The Console:** If `RunInBackground` is false.
+2.  **The Core Log File:** A persistent rolling log located at `%PROGRAMDATA%\JCMU\Logs\`.
 
-JCMU features a decentralized package manager powered by GitHub. 
-
-To make your addon available to the world:
-1. Push your source code to a public GitHub repository.
-2. Add the topic tag **`jcmu-addon`** to your repository on GitHub.
-3. Users can now discover your addon by typing `jcmu search` in their console!
+### ⌨️ User Input (`context.HostServices.PromptUserAsync`)
+A thread-safe way to request input from the user (e.g., "Enter Commit Message:"). If the user cancels or closes the window, it returns a `Maybe.None`.
 
 ---
 
-### 5. Local Development & Testing
+## 4. Local Development Workflow
 
-You don't need to push to GitHub or constantly reinstall your addon just to test a code change. JCMU includes a powerful `dev` suite that uses Windows Junctions to point the Core engine directly at your Visual Studio build output.
+JCMU is designed for rapid iteration. You do not need to "install" your addon while coding it.
 
-#### Step-by-Step Developer Workflow:
-
-1. Build your Addon in Visual Studio (or via `dotnet build`).
-2. Open a terminal and run the link command, pointing it to your project folder:
-   ```shell
-   jcmu dev link C:\Source\MyAwesomeAddon
-   ```
-3. JCMU will automatically find your `bin\Debug\...` folder, read your `manifest.json`, and hook your compiled DLLs directly into the Windows Explorer registry.
-4. Right-click a folder in Windows and test your addon.
-5. **Make a code change in Visual Studio and hit Build.** 
-6. Right-click and test again! *You do not need to run any JCMU commands; the changes are instantly live.*
-
-#### Cleaning Up
-When you are done testing, simply remove the development link using your Addon ID:
-```shell
-jcmu dev unlink JCMU.MyAwesomeAddon
-```
+1.  **Link your project:** Point JCMU to your build folder.
+    ```shell
+    jcmu dev link "C:\Source\MyAddonProject"
+    ```
+2.  **The Magic Junction:** JCMU creates a Windows Directory Junction from your `bin/Debug` folder directly into the Core engine.
+3.  **Instant Updates:** Make a code change in Visual Studio and hit **Build**. Right-click your folder again—the changes are live instantly. No re-linking required.
+4.  **Unlink:**
+    ```shell
+    jcmu dev unlink JCMU.MyAddon
+    ```
 
 ---
 
-### 6. Background Execution & Logging
+## 5. Publishing
 
-If your manifest sets `"RunInBackground": true`, the JCMU Core will execute your addon using a hidden host process. The user will not see a console window flash on their screen.
+To join the decentralized JCMU ecosystem:
+1.  Push your code to a public GitHub repository.
+2.  Add the topic tag **`jcmu-addon`** to your repository.
+3.  JCMU's global `search` command will now discover your addon automatically.
 
-Because there is no visible console during a background execution, it is critical that you use the `context.HostServices.Logger`. 
+---
 
-Regardless of whether your addon runs in the foreground or background, all `Logger.LogInfo`, `LogWarning`, and `LogError` calls are automatically captured by the Core's persistent rolling log files. 
-
-If a user reports an issue with your silent addon, you can direct them to check the core logs located at:
-`C:\ProgramData\JCMU\Logs\jcmu-core-<date>.txt`
+## 🛠️ SDK Architecture Note
+The SDK utilizes **Railway-Oriented Programming (ROP)** via the `JinnDev.Utilities.Monad` library. We highly recommend following the monadic "Some/None" track pattern to ensure your context menu extensions are robust and never crash the user's Explorer process.
